@@ -164,13 +164,35 @@ func (s *PostService) Delete() (events.APIGatewayProxyResponse, error) {
 		"id": &types.AttributeValueMemberS{Value: deleteID},
 	}
 
-	dynamodbDeleteInput := &dynamodb.DeleteItemInput{
+	getItemInput := &dynamodb.GetItemInput{
 		TableName: aws.String(TableName),
 		Key:       key,
 	}
 
 	ctx, cancelFn := context.WithTimeout(context.Background(), DynamoDBDefaultTimeout)
 	defer cancelFn()
+
+	out, err := s.DynamoDB.GetItem(ctx, getItemInput)
+	if err != nil {
+		return util.ResponseWithError(
+			http.StatusInternalServerError,
+			fmt.Errorf("error when getting post item: %w", err),
+		), nil
+	}
+
+	if out.Item == nil {
+		return util.ResponseWithError(http.StatusNotFound, fmt.Errorf("post item not found")), nil
+	}
+
+	var post Post
+	if err = attributevalue.UnmarshalMap(out.Item, &post); err != nil {
+		return util.ResponseWithError(http.StatusInternalServerError, fmt.Errorf("error when unmarshalling post item: %w", err)), nil
+	}
+
+	dynamodbDeleteInput := &dynamodb.DeleteItemInput{
+		TableName: aws.String(TableName),
+		Key:       key,
+	}
 
 	if _, err := s.DynamoDB.DeleteItem(ctx, dynamodbDeleteInput); err != nil {
 		return util.ResponseWithError(
@@ -179,5 +201,5 @@ func (s *PostService) Delete() (events.APIGatewayProxyResponse, error) {
 		), nil
 	}
 
-	return util.ResponseWithStatusCode(http.StatusNoContent), nil
+	return util.ResponseWithBody(http.StatusOK, post), nil
 }
