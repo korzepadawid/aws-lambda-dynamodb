@@ -1,12 +1,14 @@
 package router
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 
 	"github.com/korzepadawid/aws-lambda-dynamo/pkg/posts"
+	"github.com/korzepadawid/aws-lambda-dynamo/pkg/util"
 )
 
 type Router struct {
@@ -31,8 +33,9 @@ func (r *Router) Handle(request events.APIGatewayProxyRequest) (events.APIGatewa
 	case http.MethodDelete:
 		return postSvc.Delete()
 	default:
-		return events.APIGatewayProxyResponse{
-			StatusCode: http.StatusMethodNotAllowed,
-		}, nil
+		return util.ResponseWithError(
+			http.StatusMethodNotAllowed,
+			fmt.Errorf("method %s not allowed", request.HTTPMethod),
+		), nil
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/google/uuid"
 	"github.com/korzepadawid/aws-lambda-dynamo/pkg/util"
@@ -39,7 +40,33 @@ func NewPostService(req events.APIGatewayProxyRequest, dyndb *dynamodb.Client) *
 }
 
 func (s *PostService) Get() (events.APIGatewayProxyResponse, error) {
-	return util.ResponseWithBody(http.StatusOK, Post{Title: "not implemented"}), nil
+	requestedID := s.Request.PathParameters["id"]
+	key := map[string]types.AttributeValue{
+		"id": &types.AttributeValueMemberS{Value: requestedID},
+	}
+
+	getItemInput := &dynamodb.GetItemInput{
+		TableName: aws.String(TableName),
+		Key:       key,
+	}
+
+	ctx, cancelFn := context.WithTimeout(context.Background(), DynamoDBDefaultTimeout)
+	defer cancelFn()
+	result, err := s.DynamoDB.GetItem(ctx, getItemInput)
+	if err != nil {
+		return util.ResponseWithError(http.StatusInternalServerError, fmt.Errorf("error when getting post item: %w", err)), nil
+	}
+
+	if result.Item == nil {
+		return util.ResponseWithError(http.StatusNotFound, fmt.Errorf("post item not found")), nil
+	}
+
+	var post Post
+	if err = attributevalue.UnmarshalMap(result.Item, &post); err != nil {
+		return util.ResponseWithError(http.StatusInternalServerError, fmt.Errorf("error when unmarshalling post item: %w", err)), nil
+	}
+
+	return util.ResponseWithBody(http.StatusOK, post), nil
 }
 
 func (s *PostService) Create() (events.APIGatewayProxyResponse, error) {
