@@ -97,6 +97,63 @@ func (s *PostService) Create() (events.APIGatewayProxyResponse, error) {
 }
 
 func (s *PostService) Update() (events.APIGatewayProxyResponse, error) {
+	updateID := s.Request.PathParameters["id"]
+
+	inputPost, err := deserialize(s.Request)
+	if err != nil {
+		return util.ResponseWithError(http.StatusBadRequest, err), nil
+	}
+
+	key := map[string]types.AttributeValue{
+		"id": &types.AttributeValueMemberS{
+			Value: updateID,
+		},
+	}
+
+	getItemInput := &dynamodb.GetItemInput{
+		TableName: aws.String(TableName),
+		Key:       key,
+	}
+
+	ctx, cancelFn := context.WithTimeout(context.Background(), DynamoDBDefaultTimeout)
+	defer cancelFn()
+
+	out, err := s.DynamoDB.GetItem(ctx, getItemInput)
+	if err != nil {
+		return util.ResponseWithError(
+			http.StatusInternalServerError,
+			fmt.Errorf("error when getting post item: %w", err),
+		), nil
+	}
+
+	if out.Item == nil {
+		return util.ResponseWithError(http.StatusNotFound, fmt.Errorf("post item not found")), nil
+	}
+
+	var post Post
+	if err = attributevalue.UnmarshalMap(out.Item, &post); err != nil {
+		return util.ResponseWithError(http.StatusInternalServerError, fmt.Errorf("error when unmarshalling post item: %w", err)), nil
+	}
+
+	updatePost(&post, inputPost)
+
+	pv, err := attributevalue.MarshalMap(post)
+	if err != nil {
+		return util.ResponseWithError(http.StatusInternalServerError, fmt.Errorf("error when marshalling new post item: %w", err)), nil
+	}
+
+	input := &dynamodb.PutItemInput{
+		Item:      pv,
+		TableName: aws.String(TableName),
+	}
+
+	if _, err = s.DynamoDB.PutItem(ctx, input); err != nil {
+		return util.ResponseWithError(
+			http.StatusInternalServerError,
+			fmt.Errorf("error when creating new post item: %w", err),
+		), nil
+	}
+
 	return util.ResponseWithBody(http.StatusOK, Post{Title: "not implemented"}), nil
 }
 

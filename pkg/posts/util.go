@@ -25,3 +25,15 @@ func deserialize(request events.APIGatewayProxyRequest) (*Post, error) {
 
 	return p, nil
 }
+
+func updatePost(p *Post, changes *Post) {
+	if changes.Title != "" {
+		p.Title = changes.Title
+	}
+	if changes.Body != "" {
+		p.Body = changes.Body
+	}
+	if changes.UserID != 0 {
+		p.UserID = changes.UserID
+	}
+}
