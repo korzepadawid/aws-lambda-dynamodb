@@ -101,5 +101,26 @@ func (s *PostService) Update() (events.APIGatewayProxyResponse, error) {
 }
 
 func (s *PostService) Delete() (events.APIGatewayProxyResponse, error) {
+	deleteID := s.Request.PathParameters["id"]
+
+	key := map[string]types.AttributeValue{
+		"id": &types.AttributeValueMemberS{Value: deleteID},
+	}
+
+	dynamodbDeleteInput := &dynamodb.DeleteItemInput{
+		TableName: aws.String(TableName),
+		Key:       key,
+	}
+
+	ctx, cancelFn := context.WithTimeout(context.Background(), DynamoDBDefaultTimeout)
+	defer cancelFn()
+
+	if _, err := s.DynamoDB.DeleteItem(ctx, dynamodbDeleteInput); err != nil {
+		return util.ResponseWithError(
+			http.StatusInternalServerError,
+			fmt.Errorf("error when deleting post item: %w", err),
+		), nil
+	}
+
 	return util.ResponseWithStatusCode(http.StatusNoContent), nil
 }
