@@ -154,7 +154,7 @@ func (s *PostService) Update() (events.APIGatewayProxyResponse, error) {
 		), nil
 	}
 
-	return util.ResponseWithBody(http.StatusOK, Post{Title: "not implemented"}), nil
+	return util.ResponseWithBody(http.StatusOK, post), nil
 }
 
 func (s *PostService) Delete() (events.APIGatewayProxyResponse, error) {
